@@ -3,6 +3,7 @@
 #include "Tetromino.h"
 #include "GUI.h"
 #include <atomic>
+#include "windows.h"
 
 enum class GameState{Playing, Lost, Paused};
 
@@ -14,6 +15,9 @@ public:
     
     void generateRandomTetromino();
     void drawCurrentTetromino();
+    void drawShadowTetromino();
+    void drawNextTetrominos();
+    void drawSpareTetromino();
     void moveTetrominoDown();
     void handleInput();
     void hardDrop();
@@ -21,8 +25,12 @@ public:
     void fastenTetromino();
     void drawGridMatrix();
 
-    bool hasCrashed();
+    bool hasCrashed(Tetromino tet);
     void removeFullRows();
+
+    void restartWindow();
+
+
 
 private:
     // Som i minesweeper er height og width antall blokker i hver retning
@@ -30,11 +38,17 @@ private:
     const int width;
     const Point startPosition;
 
-    
+    int points = 0;
+
     vector<vector<TetrominoType>> gridMatrix;
     Tetromino currentTetromino;
+    Tetromino shadowTetromino;
+    Tetromino spareTetromino;
 
     GameState gamestate = GameState::Playing;
 
-    Fl_Output lossFeedback;
+    vector<Tetromino> nextTetrominos;
+
+    unsigned int framesPerTetronimoMove = 20;
+
 };
