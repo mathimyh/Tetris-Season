@@ -38,7 +38,7 @@ public:
     int getMatrixSize() { return matrixSize; }
     Point getPosition() { return topLeftCorner; }
     int getColor() { return tetrominoColor; }
-
+    TetrominoType getType();
 private: 
     int tetrominoColor;
     int matrixSize;
