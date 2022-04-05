@@ -2,8 +2,8 @@
 
 
 TetrisWindow::TetrisWindow(int x, int y, int width,  int height, const string& title) : 
-AnimationWindow(x, y, width*Tetromino::blockSize + 3*Tetromino::blockSize, height*Tetromino::blockSize, title),
-width{width}, height{height}, startPosition{Point{(Tetromino::blockSize*4), 0}}
+    AnimationWindow(x, y, width*Tetromino::blockSize + 3*Tetromino::blockSize, height*Tetromino::blockSize, title),
+    width{width}, height{height}, startPosition{Point{(Tetromino::blockSize*4), 0}}
 {
     //PlaySound(TEXT("Game Boy Tetris Music B.wav"), NULL, SND_FILENAME);
 
@@ -26,8 +26,9 @@ void TetrisWindow::run() {
     unsigned int speedUp = 0;
 
     // Gjør at farten øker etterhvert slik at det blir vanskeligere og vanskeligere
+    int c = 0;
     while(!should_close()) { 
-        if (speedUp % 900 == 0 && framesPerTetronimoMove >= 5) {
+        if (speedUp % 1500 == 0 && framesPerTetronimoMove >= 5) {
             framesPerTetronimoMove -= 1;
         }
         
@@ -38,7 +39,6 @@ void TetrisWindow::run() {
                 moveTetrominoDown(); // Tetrominoen flyttes nedover ved et visst intervall
             }
         }
-        
         handleInput();
         
         // Tegner bakgrunnsfarge, litt kjedelig med grå så lager svart som i Tetris Battle
@@ -56,12 +56,19 @@ void TetrisWindow::run() {
             draw_text({width*Tetromino::blockSize+Tetromino::blockSize/2, 9*height*Tetromino::blockSize/10}, "Points:", Color::white, 15U, Font::helvetica_bold);
             draw_text({width*Tetromino::blockSize+Tetromino::blockSize/2, 19*height*Tetromino::blockSize/20}, to_string(points), Color::white, 15U, Font::helvetica);
         
+        
         // Har man tapt vil det komme opp en boks med score og beskjed om å trykke r for å restarte spillet
         if (gamestate == GameState::Lost) {
+            int h = 7;
+            if (!removeQ) {h = 4;}
             drawGridMatrix();
-            draw_rectangle({width*Tetromino::blockSize/4, height*Tetromino::blockSize/4 + Tetromino::blockSize/2}, 6*Tetromino::blockSize, 5*Tetromino::blockSize, 0x0E0E0E00);
-            draw_text({width*Tetromino::blockSize/3, height*Tetromino::blockSize/3}, "GAME OVER", Color::white, 20U, Font::helvetica);  
-            draw_text({width*Tetromino::blockSize/3 - Tetromino::blockSize/2, height*Tetromino::blockSize/3 + 2*Tetromino::blockSize}, "Press R to restart", Color::white, 20U, Font::helvetica); 
+            draw_rectangle({width*Tetromino::blockSize/4, height*Tetromino::blockSize/4 + Tetromino::blockSize/2}, 6*Tetromino::blockSize, h*Tetromino::blockSize, 0x0E0E0E00);
+            draw_text({width*Tetromino::blockSize/3, height*Tetromino::blockSize/3}, "GAME OVER", Color::white, 20U, Font::helvetica_bold);  
+            draw_text({width*Tetromino::blockSize/3 - Tetromino::blockSize/2, height*Tetromino::blockSize/3 + 2*Tetromino::blockSize}, " Press R to restart", Color::white, 20U, Font::helvetica); 
+            if (removeQ) {
+                draw_text({width*Tetromino::blockSize/3 - Tetromino::blockSize/2, height*Tetromino::blockSize/3 + 4*Tetromino::blockSize}, " Press Q to save", Color::white, 20U,Font::helvetica);
+                draw_text({width*Tetromino::blockSize/3 - Tetromino::blockSize/2, height*Tetromino::blockSize/3 + 5*Tetromino::blockSize}, "        score", Color::white, 20U,Font::helvetica);
+            }
         }
 
         // Er man i spillet tegnes alle tetrominoene
@@ -86,6 +93,21 @@ void TetrisWindow::run() {
             draw_text({width*Tetromino::blockSize/3 - 3*Tetromino::blockSize/2, height*Tetromino::blockSize/3 + 2*Tetromino::blockSize}, "Press R to restart", Color::white, 20U, Font::helvetica_bold);
             draw_text({width*Tetromino::blockSize/3 - 3*Tetromino::blockSize/2, height*Tetromino::blockSize/3 + 4*Tetromino::blockSize}, "Press P to continue", Color::white, 20U, Font::helvetica_bold);
         } 
+
+        // Her skriver man inn navnet sitt og lagrer scoren i Leadeboard.txt
+        else if (gamestate == GameState::WritingName) {
+            drawGridMatrix();
+            draw_rectangle({width*Tetromino::blockSize/4 - Tetromino::blockSize, height*Tetromino::blockSize/4 + Tetromino::blockSize/2}, 7*Tetromino::blockSize, 3*Tetromino::blockSize, 0x0E0E0E00);
+            draw_text({width*Tetromino::blockSize/3 - Tetromino::blockSize, height*Tetromino::blockSize/3}, "NAME:", Color::white, 20U, Font::helvetica_bold); 
+            if (is_key_down(KeyboardKey::ENTER)) {
+                addNameToFile();
+                gamestate = GameState::Lost;
+            }
+            else {
+                saveName();
+                draw_text({width*Tetromino::blockSize/3 - Tetromino::blockSize, height*Tetromino::blockSize/3 + Tetromino::blockSize}, name, Color::white, 20U, Font::helvetica);
+            }
+        }
         
         next_frame();
     }
@@ -185,8 +207,13 @@ void TetrisWindow::handleInput() {
     }
     
     
-    // Har man tapt kan man restarte spillet ved å trykke på R
+    // Har man tapt er det ikke så mye å gjøre
     else if (gamestate == GameState::Lost) {
+        // Man kan skrive inn navnet sitt på leaderboardet. På en veldig dårlig måte. Kan bare skrive en gang dermed 
+        if(currentQKeyState && !lastQKeyState && removeQ) {
+            gamestate = GameState::WritingName;
+        }
+        // Restarter vinduet ved å trykke på R
         if(currentRKeyState && !lastRKeyState) {
                 restartWindow();
         }
@@ -210,6 +237,7 @@ void TetrisWindow::handleInput() {
     lastRKeyState = currentRKeyState;
     lastPKeyState = currentPKeyState;
     lastCKeyState = currentCKeyState;
+    lastQKeyState = currentQKeyState;
 }
 
 void TetrisWindow::generateRandomTetromino()
@@ -224,7 +252,7 @@ void TetrisWindow::generateRandomTetromino()
         currentTetromino = Tetromino(startPosition, TetrominoType{temp});
     }
     
-    // Hvis listen har 3 elementer vil den currentTetromino bli den første av disse. 
+    // Hvis listen har 3 elementer vil currentTetromino bli den første av disse. 
     // Sletter så dette elementet og legger til et nytt på slutten.
     else {
         currentTetromino = nextTetrominos[0];
@@ -248,6 +276,7 @@ void TetrisWindow::drawCurrentTetromino()
         for (int j = 0; j < size; j++) {
             if (currentTetromino.getBlock(i, j) != TetrominoType::NONE) {
                 draw_rectangle({currentPos.x + (j*Tetromino::blockSize), currentPos.y + (i*Tetromino::blockSize)}, Tetromino::blockSize, Tetromino::blockSize, color);
+                //FreezingFace f({currentPos.x + (j*Tetromino::blockSize), currentPos.y + (i*Tetromino::blockSize)}, Tetromino::blockSize/2, {currentPos.x + (j*Tetromino::blockSize) - Tetromino::blockSize/4, currentPos.y + (i*Tetromino::blockSize) - Tetromino::blockSize/4}, {currentPos.x + (j*Tetromino::blockSize) + Tetromino::blockSize/4, currentPos.y + (i*Tetromino::blockSize) - Tetromino::blockSize/4}, 3, {currentPos.x + (j*Tetromino::blockSize) - Tetromino::blockSize/4, currentPos.y + (i*Tetromino::blockSize) - Tetromino::blockSize/4}, {currentPos.x + (j*Tetromino::blockSize), currentPos.y + (i*Tetromino::blockSize) + Tetromino::blockSize/4}, 3, {currentPos.x + (j*Tetromino::blockSize), currentPos.y + (i*Tetromino::blockSize)});
             }
         }
     }
@@ -429,19 +458,26 @@ void TetrisWindow::hardDrop()
 
 void TetrisWindow::restartWindow()
 {
+    // Resetter bakgrunnen 
     for (int i = 0; i < height; i++) {
         for (int j=0; j <width; j++) {
             gridMatrix[i][j] = TetrominoType::NONE;
         }
     }
 
+    // Variabler som må nullstilles
     gamestate = GameState::Playing;
     points = 0;
     nextTetrominos.clear();
     spareTetromino = Tetromino();
-
     framesPerTetronimoMove = 20;
+    
 
+    // Navnvariabler
+    removeQ = true;
+    name = "";
+
+    // Starter spillet på ny
     generateRandomTetromino();
 }
 
@@ -488,3 +524,250 @@ void TetrisWindow::drawSpareTetromino()
         }
     }
 }
+
+
+
+void TetrisWindow::addNameToFile()
+{
+    ifstream leaderboard("Leaderboard.txt");
+
+    vector<Points> sorted;
+    string line;
+    string spaceDelimiter = " ";
+    
+    // Legger inn alle linjene i en vektor som inneholder vektorer med navn og poeng
+    while (getline(leaderboard, line)) {
+        if (!line.empty()){
+            vector<string> temp;
+            size_t pos = 0;
+            while ((pos = line.find(spaceDelimiter)) != string::npos) {
+                temp.push_back(line.substr(0,pos));
+                line.erase(0, pos + spaceDelimiter.length());
+            }
+            Points tempP = {temp[0], stoi(temp[1])};
+            sorted.push_back(tempP);
+        }
+    }
+    
+    leaderboard.close();
+    int size = sorted.size();
+    
+    // Er den større enn førsteplassen
+    if (points > sorted[0].points) {
+        Points temp = {name, points};
+        sorted.insert(sorted.begin(), temp);
+    }
+    
+        
+    //Er den mindre enn siste
+    
+    else if (points <= sorted[size-1].points) {
+        Points temp = {name, points};
+        sorted.push_back(temp);
+    }
+    
+    // Sjekker alle andre plasser, her fra andre plass til nest siste plass
+    else {
+        for (int i = 1; i < size; i++) {
+            if (points < sorted[i-1].points && points > sorted[i].points ) {
+                Points temp = {name, points};
+                sorted.insert(sorted.begin() + i, temp);
+                i++;
+            }
+        }
+    }
+    
+    ofstream myFile("Leaderboard.txt");
+    for (auto& element : sorted) {
+        myFile << element.name << " " << to_string(element.points) << " " << "P" << "\n";
+    }
+
+    myFile.close();
+    sorted.clear();
+
+
+}
+
+void TetrisWindow::saveName()
+{
+    static bool lastAKeyState = false;
+    static bool lastBKeyState = false;
+    static bool lastCKeyState = false;
+    static bool lastDKeyState = false;
+    static bool lastEKeyState = false;
+    static bool lastFKeyState = false;
+    static bool lastGKeyState = false;
+    static bool lastHKeyState = false;
+    static bool lastIKeyState = false;
+    static bool lastJKeyState = false;
+    static bool lastKKeyState = false;
+    static bool lastLKeyState = false;
+    static bool lastMKeyState = false;
+    static bool lastNKeyState = false;
+    static bool lastOKeyState = false;
+    static bool lastPKeyState = false;
+    static bool lastQKeyState = false;
+    static bool lastRKeyState = false;
+    static bool lastSKeyState = false;
+    static bool lastTKeyState = false;
+    static bool lastUKeyState = false;
+    static bool lastVKeyState = false;
+    static bool lastWKeyState = false;
+    static bool lastXKeyState = false;
+    static bool lastYKeyState = false;
+    static bool lastZKeyState = false;
+    static bool lastBackspaceKeyState = false;
+
+    bool currentAKeyState = is_key_down(KeyboardKey::A);
+    bool currentBKeyState = is_key_down(KeyboardKey::B);
+    bool currentCKeyState = is_key_down(KeyboardKey::C);
+    bool currentDKeyState = is_key_down(KeyboardKey::D);
+    bool currentEKeyState = is_key_down(KeyboardKey::E);
+    bool currentFKeyState = is_key_down(KeyboardKey::F);
+    bool currentGKeyState = is_key_down(KeyboardKey::G);
+    bool currentHKeyState = is_key_down(KeyboardKey::H);
+    bool currentIKeyState = is_key_down(KeyboardKey::I);
+    bool currentJKeyState = is_key_down(KeyboardKey::J);
+    bool currentKKeyState = is_key_down(KeyboardKey::K);
+    bool currentLKeyState = is_key_down(KeyboardKey::L);
+    bool currentMKeyState = is_key_down(KeyboardKey::M);
+    bool currentNKeyState = is_key_down(KeyboardKey::N);
+    bool currentOKeyState = is_key_down(KeyboardKey::O);
+    bool currentPKeyState = is_key_down(KeyboardKey::P);
+    bool currentQKeyState = is_key_down(KeyboardKey::Q);
+    bool currentRKeyState = is_key_down(KeyboardKey::R);
+    bool currentSKeyState = is_key_down(KeyboardKey::S);
+    bool currentTKeyState = is_key_down(KeyboardKey::T);
+    bool currentUKeyState = is_key_down(KeyboardKey::U);
+    bool currentVKeyState = is_key_down(KeyboardKey::V);
+    bool currentWKeyState = is_key_down(KeyboardKey::W);
+    bool currentXKeyState = is_key_down(KeyboardKey::X);
+    bool currentYKeyState = is_key_down(KeyboardKey::Y);
+    bool currentZKeyState = is_key_down(KeyboardKey::Z);
+    bool currentBackspaceKeyState = is_key_down(KeyboardKey::BACKSPACE);
+
+
+    if(currentAKeyState && !lastAKeyState) {
+            name.push_back('A');
+        }
+    if(currentBKeyState && !lastBKeyState) {
+            name.push_back('B');
+        }
+    if(currentCKeyState && !lastCKeyState) {
+            name.push_back('C');
+        }
+    if(currentDKeyState && !lastDKeyState) {
+            name.push_back('D');
+        }
+
+    if(currentEKeyState && !lastEKeyState) {
+            name.push_back('E');
+        }
+    if(currentFKeyState && !lastFKeyState) {
+            name.push_back('F');
+        }
+    if(currentGKeyState && !lastGKeyState) {
+            name.push_back('G');
+        }
+    if(currentHKeyState && !lastHKeyState) {
+            name.push_back('H');
+        }
+    if(currentIKeyState && !lastIKeyState) {
+            name.push_back('I');
+        }
+    if(currentJKeyState && !lastJKeyState) {
+            name.push_back('J');
+        }
+    if(currentKKeyState && !lastKKeyState) {
+            name.push_back('K');
+        }
+    if(currentLKeyState && !lastLKeyState) {
+            name.push_back('L');
+        }
+    if(currentMKeyState && !lastMKeyState) {
+            name.push_back('M');
+        }
+    if(currentNKeyState && !lastNKeyState) {
+            name.push_back('N');
+        }
+    if(currentOKeyState && !lastOKeyState) {
+            name.push_back('O');
+        }
+    if(currentPKeyState && !lastPKeyState) {
+            name.push_back('P');
+        }
+    if(currentQKeyState && !lastQKeyState) {
+            name.push_back('Q');
+        }
+    if(currentRKeyState && !lastRKeyState) {
+            name.push_back('R');
+        }
+    if(currentSKeyState && !lastSKeyState) {
+            name.push_back('S');
+        }
+    if(currentTKeyState && !lastTKeyState) {
+            name.push_back('T');
+        }
+    if(currentUKeyState && !lastUKeyState) {
+            name.push_back('U');
+        }
+    if(currentVKeyState && !lastVKeyState) {
+            name.push_back('V');
+        }
+    if(currentWKeyState && !lastWKeyState) {
+            name.push_back('W');
+        }
+    if(currentXKeyState && !lastXKeyState) {
+            name.push_back('X');
+        }
+    if(currentYKeyState && !lastYKeyState) {
+            name.push_back('Y');
+        }
+    if(currentZKeyState && !lastZKeyState) {
+            name.push_back('Z');
+        }
+    if(currentBackspaceKeyState && !lastBackspaceKeyState) {
+            if (!name.empty()) {
+                name.pop_back();
+            }
+        }
+
+    if(name.length() > 8) {
+        name.pop_back();
+    }
+
+    if(removeQ) {
+        name.pop_back();
+        removeQ = false;
+    }
+
+    lastAKeyState = currentAKeyState;
+    lastBKeyState = currentBKeyState;
+    lastCKeyState = currentCKeyState;
+    lastDKeyState = currentDKeyState;
+    lastEKeyState = currentEKeyState;
+    lastFKeyState = currentFKeyState;
+    lastGKeyState = currentGKeyState;
+    lastHKeyState = currentHKeyState;
+    lastIKeyState = currentIKeyState;
+    lastJKeyState = currentJKeyState;
+    lastKKeyState = currentKKeyState;
+    lastLKeyState = currentLKeyState;
+    lastMKeyState = currentMKeyState;
+    lastNKeyState = currentNKeyState;
+    lastOKeyState = currentOKeyState;
+    lastPKeyState = currentPKeyState;
+    lastQKeyState = currentQKeyState;
+    lastRKeyState = currentRKeyState;
+    lastSKeyState = currentSKeyState;
+    lastTKeyState = currentTKeyState;
+    lastUKeyState = currentUKeyState;
+    lastVKeyState = currentVKeyState;
+    lastWKeyState = currentWKeyState;
+    lastXKeyState = currentXKeyState;
+    lastYKeyState = currentYKeyState;
+    lastZKeyState = currentZKeyState;
+    lastBackspaceKeyState = currentBackspaceKeyState;
+
+}
+
