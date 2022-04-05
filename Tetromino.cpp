@@ -60,6 +60,7 @@ const map<TetrominoType, vector<vector<int>>> initialMatrixMap {
         {0, 0, 0}
         }
     }
+
 };
 
 

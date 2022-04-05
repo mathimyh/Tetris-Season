@@ -3,9 +3,17 @@
 #include "Tetromino.h"
 #include "GUI.h"
 #include <atomic>
-#include "windows.h"
+#include "../Øving 7/FreezingFace.h"
+#include <iostream>
+#include <fstream>
 
-enum class GameState{Playing, Lost, Paused};
+struct Points
+{
+    string name;
+    int points;
+};
+
+enum class GameState{Playing, Lost, Paused, WritingName};
 
 class TetrisWindow : public AnimationWindow {
 
@@ -29,6 +37,8 @@ public:
     void removeFullRows();
 
     void restartWindow();
+    void saveName();
+    void addNameToFile();
 
 
 
@@ -51,4 +61,10 @@ private:
 
     unsigned int framesPerTetronimoMove = 20;
 
+    string name = "";
+    bool removeQ = true;
+
 };
+
+
+
